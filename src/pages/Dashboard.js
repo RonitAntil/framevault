@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { getCurrentUser, signOut } from '../lib/auth'
+import  EditModal  from '../components/EditModal'
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -17,6 +18,41 @@ export default function Dashboard() {
   const [uploading, setUploading] = useState(false)
   const [newWorkUrl, setNewWorkUrl] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [editWork, setEditWork] = useState(null)
+
+  useEffect(() => {  
+  async function checkAuth() {  
+    const { data: { user } } = await supabase.auth.getUser()  
+    console.log('Supabase auth user:', user)  
+    if (!user) {  
+      console.log('Not authenticated with Supabase!')  
+      // Force redirect to login  
+      window.location.href = '/login'  
+    }  
+  }  
+  checkAuth()  
+}, [])
+
+
+// useEffect(() => {
+//   async function debugAuth() {
+//     const { data: { user } } = await supabase.auth.getUser()
+//     console.log("=== DEBUG INFO ===")
+//     console.log("Supabase User:", user)
+//     console.log("LocalStorage:", localStorage.getItem('creator_email'))
+//     console.log("User ID:", user?.id)
+    
+     // Check database uploads
+//     const { data: allUploads } = await supabase
+//       .from('uploads')
+//       .select('user_id, title, publisher')
+//       .is('deleted_at', null)
+    
+//     console.log("All uploads in DB:", allUploads)
+//     console.log("Matching uploads:", allUploads?.filter(u => u.user_id === user?.id))
+//   }
+//   debugAuth()
+// }, [])
 
   useEffect(() => {
     checkUser()
@@ -46,6 +82,11 @@ export default function Dashboard() {
 
   async function handleUpload(e) {
     e.preventDefault()
+    if (!user?.id) {
+    alert('Session expired. Please login again.')
+    navigate('/login')
+    return
+  }
     if (!file || !displayDate || !user) return
     
     setUploading(true)
@@ -69,9 +110,9 @@ export default function Dashboard() {
         .from('uploads')
         .insert({
           title: title || 'Untitled Work',
-          publisher: user.user_metadata?.full_name || user.email.split('@')[0],
-          email: user.email,
-          user_id: user.id, // CRITICAL: Links to auth user
+          publisher: user?.user_metadata?.full_name || user.email?.split('@')[0],
+          email: user?.email,
+          user_id: user?.id, // CRITICAL: Links to auth user
           file_url: publicUrl,
           file_type: file.type,
           public_display_date: displayDate,
@@ -123,11 +164,7 @@ export default function Dashboard() {
           <div className="max-w-7xl mx-auto px-4">
             <div className="flex justify-between h-16 items-center">
               <Link to="/" className="flex items-center">
-                <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center mr-2">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                </div>
+                <img src="/logo.png" alt="FrameVault" className="h-10 w-auto mr-3 rounded-xl" />
                 <span className="font-bold text-xl text-gray-900">FrameVault</span>
               </Link>
               <button onClick={() => setShowUpload(false)} className="text-gray-600 hover:text-gray-900">
@@ -199,11 +236,7 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex justify-between h-16 items-center">
             <Link to="/" className="flex items-center">
-              <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center mr-2">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
+              <img src="/logo.png" alt="FrameVault" className="h-10 w-auto mr-3 rounded-xl" />
               <span className="font-bold text-xl text-gray-900">FrameVault</span>
             </Link>
             <div className="flex items-center gap-4">
@@ -283,6 +316,27 @@ export default function Dashboard() {
                   </svg>
                 </button>
 
+                {/* Edit Button */}
+                <button 
+                  onClick={() => setEditWork(work)}
+                  className="absolute top-2 left-2 w-8 h-8 bg-white/90 hover:bg-blue-50 rounded-full flex items-center justify-center text-gray-400 hover:text-blue-600 transition opacity-0 group-hover:opacity-100"
+                  title="Edit work"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+
+                {/* Edit Modal */}
+                {editWork && user && (
+                <EditModal 
+                  work={editWork} 
+                  onClose={() => setEditWork(null)} 
+                  onSave={() => fetchWorks(user.id)}
+                  userId={user.id}
+                />
+              )}
+
                 {/* Delete Confirmation Modal */}
                 {deleteConfirm === work.slug && (
                   <div className="absolute inset-0 bg-black/50 flex items-center justify-center p-4">
@@ -299,6 +353,8 @@ export default function Dashboard() {
                     </div>
                   </div>
                 )}
+                
+                
               </div>
             ))}
           </div>
